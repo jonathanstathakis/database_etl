@@ -18,6 +18,7 @@ from database_etl.etl.sql.raw_chm.bin_pumps_to_db.bin_pump_to_db_ import bin_pum
 from database_etl.etl.sql.raw_chm.bin_pumps_to_db.normalise_bin_pump_tbls import (
     normalise_bin_pump_tbls,
 )
+from database_etl.etl.sql.to_xr import sql_to_xr
 
 
 @pytest.fixture(scope="module")
@@ -349,11 +350,11 @@ def xr_from_sql(
     exc_get_sample_gradients: db.DuckDBPyConnection,
     exc_gen_excluded_inc: db.DuckDBPyConnection,
 ) -> xr.Dataset:
-    from database_etl.etl.sql.to_xr import sql_to_xr
-
     dset = sql_to_xr(con=exc_get_sample_gradients)
 
     assert dset
+
+    assert len(dset.time) == 7800
 
     return dset
 

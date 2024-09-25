@@ -73,6 +73,7 @@ def add_runids_to_images(img: pd.DataFrame, con: db.DuckDBPyConnection) -> pd.Da
     """
     join the img file to chm to add the runid
     """
+
     return con.sql(
         """--sql
     select
@@ -99,6 +100,7 @@ def fetch_imgs(con: db.DuckDBPyConnection) -> list[pd.DataFrame]:
 
     return [
         add_runids_to_images(img=pd.read_parquet(path), con=con)
+        .pipe(smooth_numeric_col, col="time")
         .set_index("time")
         .rename_axis("wavelength", axis=1)
         for path in paths
@@ -127,38 +129,28 @@ def trim_times(imgs: list[pd.DataFrame], m: int) -> list[pd.DataFrame]:
     return equal_length_samples
 
 
-def smooth_time(df: pd.DataFrame) -> pd.DataFrame:
+def smooth_numeric_col(df: pd.DataFrame, col: str) -> pd.DataFrame:
     """
     relabel the time index of the df to the observation frequency evenly spaced, from
     0 to the last value of the index. Assumes that the index is the time dimension,
     in minute units and that the last value of the index is the maximum.
     """
-    old_index = df.index.to_numpy()
-    old_index.sort()
-    time_max = old_index.max()
-    mean_timestep = np.round(np.mean(np.diff(old_index)), 9)
 
-    # the slicing is due to a difficult to fix discrepency in samples with 1 more observation than the rest. Just makes sure tht the lengths of the indexes is the same. It may cause errors downstream..
-    new_index = pd.Index(
-        np.arange(0, time_max + mean_timestep, mean_timestep), name="mins"
-    )[0 : len(old_index)]
-
-    if not len(new_index) == len(old_index):
-        raise ValueError(
-            f"{len(old_index), len(new_index)}, {max(old_index), max(new_index)}"
-        )
-
-    df.index = new_index
+    df[col] = smooth_numeric_array(df[col].to_numpy())
     return df
 
 
-def align_df_times(dfs: list[pd.DataFrame], m: int) -> list[pd.DataFrame]:
-    """
-    trim the images in `dfs` to a common maximum length then smooth so all time labels
-    are row-wise equal
-    """
-    trimmed_df = trim_times(imgs=dfs, m=m)
-    return [smooth_time(df) for df in trimmed_df]
+def smooth_numeric_array(input_time):
+    if not isinstance(input_time, np.ndarray):
+        raise TypeError("expect numpy array")
+
+    input_time.sort()
+    time_max = input_time.max()
+    mean_timestep = np.round(np.mean(np.diff(input_time)), 9)
+
+    # the slicing is due to a difficult to fix discrepency in samples with 1 more observation than the rest. Just makes sure tht the lengths of the indexes is the same. It may cause errors downstream..
+
+    return np.arange(0, time_max + mean_timestep, mean_timestep)[0 : len(input_time)]
 
 
 def img_to_xr_dset(id: str, data_dict: dict):
@@ -180,31 +172,37 @@ def get_metadata_as_dict(con: db.DuckDBPyConnection) -> dict:
     return metadata.set_index("id").to_dict(orient="index")
 
 
-def get_imgs_as_dict(con: db.DuckDBPyConnection, m: int) -> dict:
+def get_imgs_as_dict(con: db.DuckDBPyConnection) -> dict:
     """
     fetch all chromatospectral images for all samples in included chm returned as a
     dict with the 'chm.id' as the keys and the image dataframe as the value.
     """
     imgs = fetch_imgs(con=con)
-    time_aligned_imgs = align_df_times(imgs, m=m)
-    return {
-        img["id"][0]: img.drop(["id", "runid"], axis=1) for img in time_aligned_imgs
-    }
+
+    return {img["id"][0]: img.drop(["id", "runid"], axis=1) for img in imgs}
 
 
 def sql_to_xr(con: db.DuckDBPyConnection, m: int = 7800) -> xr.Dataset:
     """
     Convert the sql-stored dataset into an xarray DataSet with each chm run labeled by
     its unique 'id'.
+
+    need to seperate the getting from the preparing
+
     :m: is the restriction of the number of rows across the data.
     """
 
     logger.info("sql_to_xr..")
 
-    imgs_as_dict = get_imgs_as_dict(con=con, m=m)
+    imgs_as_dict = get_imgs_as_dict(con=con)
+
     metadata_as_dict = get_metadata_as_dict(con=con)
+
+    trimmed_imgs = trim_times(imgs=list(imgs_as_dict.values()), m=m)
+
     dataset_dict = {
-        id: {"data": img, **metadata_as_dict[id]} for id, img in imgs_as_dict.items()
+        id: {"data": img, **metadata_as_dict[id]}
+        for id, img in dict(zip(imgs_as_dict.keys(), trimmed_imgs)).items()
     }
 
     return xr.concat(
