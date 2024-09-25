@@ -1,0 +1,1 @@
+'./original_dirty_sample_tracker.csv' is a copy of the sample tracker before I corrected the wine names/vintages(?) to match those of cellartracker. This is kept purely as a reference.
