@@ -406,7 +406,7 @@ def test_etl_pipeline_raw_full_dset(
         }
     ],
     full_lib_dir: Path = Path("../../../jonathan/uni/0_jono_data/raw_uv").resolve(),
-    run_extraction: bool = True,
+    run_extraction: bool = False,
 ) -> None:
     dset = etl_pipeline_raw(
         run_extraction=run_extraction,
