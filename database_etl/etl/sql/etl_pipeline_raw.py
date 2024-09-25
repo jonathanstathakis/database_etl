@@ -32,7 +32,7 @@ def etl_pipeline_raw(
     excluded_samples: list[dict[str, str]] = [{}],
     con: db.DuckDBPyConnection = db.connect(),
     run_extraction: bool = False,
-    overwrite: bool = True,
+    overwrite: bool = False,
 ) -> xr.Dataset:
     """
     transform a directory `data_dir` of chemstation .D dirs into a xarray dataset. A side effect is a persistant duckdb database of sample run metadata.
@@ -47,11 +47,11 @@ def etl_pipeline_raw(
 
     if run_extraction:
         for path in data_dir.glob("*.D"):
-            chm_extractor.extract_run_data(path, overwrite=overwrite)
+            chm_extractor.extract_run_data(path, overwrite=run_extraction)
 
-    sql.ct.get_clean_ct(pw=ct_pw, un=ct_un, con=con, output="db")
+    sql.ct.get_clean_ct(pw=ct_pw, un=ct_un, con=con, output="db", overwrite=overwrite)
 
-    sql.raw_st.clean_load_raw_st(con=con, dirty_st_path=dirty_st_path)
+    sql.raw_st.clean_load_raw_st(con=con, dirty_st_path=dirty_st_path, overwrite=overwrite)
 
     sql.raw_chm.extracted_metadata_to_db(con=con, lib_dir=data_dir, overwrite=overwrite)
 

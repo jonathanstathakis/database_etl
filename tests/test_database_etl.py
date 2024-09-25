@@ -1,3 +1,9 @@
+"""
+Use fixtures to manage pipeline dependencies, execution order. Table A needs table B, so
+ a fixture creating table B is included in the fixture creating table A, but not necessarily
+ called, just included in the parameters.
+"""
+
 import pytest
 import duckdb as db
 from pathlib import Path
@@ -367,7 +373,7 @@ def test_etl_pipeline_raw(
     ct_pw: str,
     ct_un: str,
     test_dset: xr.Dataset,
-    excluded_samples: list[str],
+    excluded_samples: list[dict[str, str]],
     testcon: db.DuckDBPyConnection = db.connect(),
 ):
     """

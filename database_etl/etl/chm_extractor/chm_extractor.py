@@ -5,6 +5,10 @@ from pathlib import Path
 import polars as pl
 import pandas as pd
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def get_data(path: Path) -> tuple[pl.DataFrame, pl.DataFrame]:
     """
@@ -69,6 +73,9 @@ def extract_run_data(path: Path, overwrite: bool = False) -> str:
 
     returns a status report on successful execution
     """
+
+    logger.info(f"extracting data at {path}..")
+    
     metadata, data = get_data(path=path)
 
     dir_pattern = "extract_"
