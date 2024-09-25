@@ -37,7 +37,7 @@ def get_sample_metadata(con: db.DuckDBPyConnection) -> pd.DataFrame:
     left join
         st
     on
-        chm.st_samplecode = st.samplecode
+        chm.samplecode = st.samplecode
     left join
         ct
     on

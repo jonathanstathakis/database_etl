@@ -1,6 +1,6 @@
 create table chm_loading (
     ch_runid varchar primary key,
-    st_samplecode varchar unique,
+    samplecode varchar unique,
     acq_date datetime unique not null,
     acq_method varchar not null,
     inj_vol float not null,

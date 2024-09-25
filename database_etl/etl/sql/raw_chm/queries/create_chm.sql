@@ -11,21 +11,21 @@ select
     chm.originalfilepath,
     chm.id,
     chm.description,
-    st.samplecode as st_samplecode,
+    st.samplecode as samplecode,
     chm.path as path
 from
     chm_loading as chm
 inner join
     st
     on
-        chm.st_samplecode = st.samplecode;
+        chm.samplecode = st.samplecode;
 select *
 from
     chm_st_join;
 
 create table chm (
         runid varchar primary key,
-        st_samplecode varchar references st(samplecode) not null,
+        samplecode varchar references st(samplecode) not null,
         acq_date datetime unique,
         acq_method varchar not null,
         inj_vol float not null,
@@ -39,7 +39,7 @@ create table chm (
 insert into chm by name
     select
         runid as runid,
-        st_samplecode as st_samplecode,
+        samplecode as samplecode,
         acq_date as acq_date,
         acq_method as acq_method,
         inj_vol as inj_vol,
