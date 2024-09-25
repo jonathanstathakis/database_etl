@@ -164,10 +164,10 @@ cython_debug/
 *.duckdb*
 *.wal
 *.tmp/
-*.nc
 .DS_Store
 .vscode
-.nc
 wine.db
 raw_uv/
-raw_uv_3.17_grad/
+raw_uv_3.17_grad/.nc
+*.nc
+*.db

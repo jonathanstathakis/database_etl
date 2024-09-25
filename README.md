@@ -1,1 +1,3 @@
- 
+# Cleaning ST Names
+
+The original ST wine names / vintages entered do not in the majority of cases match the Cellar Tracker names/vintages. As these constitute the primary key between the two tables, need to form matches between each. This can be done by running 'correcting_sampletracker_name.ipynb'. It does not directly fit into the overall ETL pipeline because I manually replaced the names in the source sampletracker sheet/file but has been kept as a reference.
