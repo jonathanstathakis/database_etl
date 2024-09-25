@@ -13,7 +13,7 @@ python = ">=3.12.2, <4.0"
 cellartracker = "1.1.1"
 duckdb = "1.1.0"
 fuzzywuzzy = "0.18.0"
-numpy = "1.26.4"
+numpy = "2.1.1"
 pandas = "^2.2.2"
 ipython = "^8.24.0"
 rainbow-api = {git = "https://github.com/jonathanstathakis/rainbow.git"}
