@@ -17,6 +17,11 @@ def get_load_raw_chm_query() -> Path:
     return Path(__file__).parent / "clean_load_raw_chm.sql"
 
 
+def get_query(name: str):
+    with open(Path(__file__).parent / "queries" / f"{name}.sql") as f:
+        return f.read()
+
+
 def extracted_metadata_to_db(
     con: db.DuckDBPyConnection, lib_dir: Path, overwrite: bool = False
 ):
@@ -34,65 +39,11 @@ def extracted_metadata_to_db(
         ]
     )
 
-    with open(get_load_raw_chm_query()) as f:
-        query = f.read()
-
     pl.Config.set_fmt_str_lengths(999)
 
     # add a 'date' ordered numbering to runs with duplicate samplecodes.
 
-    metadata_df = con.sql(
-        """--sql
-        with
-            new_names as (
-                select
-                    date,
-                    notebook,
-                    rank_dense() over (
-                        partition by notebook order by date) as rank,
-                    concat(notebook, '_', rank) as new_name
-                from
-                    metadata_df_
-                qualify
-                    rank > 1
-                        ),
-            replaced_names as (
-            select
-                coalesce(new.new_name, orig.notebook) as notebook,
-                orig.date as date,
-                orig.method as method,
-                orig.injection_volume as injection_volume,
-                orig.seq_name as seq_name,
-                orig.seq_desc as seq_desc,
-                orig.vialnum as vialnum,
-                orig.originalfilepath as originalfilepath,
-                orig.id as id,
-                orig."desc" as "desc",
-                orig.path as path
-            from
-                metadata_df_ orig
-            left join
-                new_names new
-            on
-                orig.date = new.date
-            and
-                orig.notebook = new.notebook)
-        select
-            notebook,
-            date,
-            method,
-            injection_volume,
-            seq_name,
-            seq_desc,
-            vialnum,
-            originalfilepath,
-            id,
-            "desc",
-            path
-        from
-            replaced_names 
-        """
-    ).pl()
+    metadata_df = con.sql(get_query("make_samplecodes_unique")).pl()
 
     # double check that samplecode is now unique
 
@@ -113,4 +64,6 @@ def extracted_metadata_to_db(
         .is_empty()
     )
 
-    con.execute(query)
+    con.execute(get_query("create_chm_loading"))
+    con.execute(get_query("create_sequences"))
+    con.execute(get_query("create_chm"))
