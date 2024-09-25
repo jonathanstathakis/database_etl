@@ -29,6 +29,7 @@ def etl_pipeline_raw(
     dirty_st_path: Path,
     ct_un: str,
     ct_pw: str,
+    output: str,
     excluded_samples: list[dict[str, str]] = [{}],
     con: db.DuckDBPyConnection = db.connect(),
     run_extraction: bool = False,
@@ -65,4 +66,7 @@ def etl_pipeline_raw(
         con=con, excluded_samples=excluded_samples, overwrite=overwrite
     )
 
-    return sql.to_xr.sql_to_xr(con=con)
+    match output:
+        case 'xr':
+            return sql.to_xr.sql_to_xr(con=con)
+

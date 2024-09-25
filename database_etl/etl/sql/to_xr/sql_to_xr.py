@@ -100,8 +100,9 @@ def fetch_imgs(con: db.DuckDBPyConnection) -> list[pd.DataFrame]:
 
     return [
         add_runids_to_images(img=pd.read_parquet(path), con=con)
-        .pipe(smooth_numeric_col, col="time")
-        .set_index("time")
+        .rename({"time": "mins"}, axis=1)
+        .pipe(smooth_numeric_col, col="mins")
+        .set_index("mins")
         .rename_axis("wavelength", axis=1)
         for path in paths
     ]
