@@ -189,7 +189,10 @@ def get_imgs_as_dict(con: db.DuckDBPyConnection, m: int) -> dict:
     """
     imgs = fetch_imgs(con=con)
     time_aligned_imgs = align_df_times(imgs, m=m)
-    return {img["id"][0]: img.drop("id", axis=1) for img in time_aligned_imgs}
+    return {
+        img["id"][0]: img.drop(["id", "samplecode"], axis=1)
+        for img in time_aligned_imgs
+    }
 
 
 def sql_to_xr(con: db.DuckDBPyConnection, m: int = 7800) -> xr.Dataset:

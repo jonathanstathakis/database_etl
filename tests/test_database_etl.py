@@ -363,12 +363,12 @@ def test_dset(test_data_dir: Path) -> xr.Dataset:
 
 def test_etl_pipeline_raw(
     test_data_dir: Path,
-    testcon: db.DuckDBPyConnection,
     dirty_st_path: Path,
     ct_pw: str,
     ct_un: str,
     test_dset: xr.Dataset,
     excluded_samples: list[str],
+    testcon: db.DuckDBPyConnection = db.connect(),
 ):
     """
     Test the execution of the full pipeline judged by whether the resulting xr.Dataset
@@ -400,7 +400,7 @@ def test_etl_pipeline_raw_full_dset(
         }
     ],
     full_lib_dir: Path = Path("../../../jonathan/uni/0_jono_data/raw_uv").resolve(),
-    run_extraction: bool = False,
+    run_extraction: bool = True,
 ) -> None:
     dset = etl_pipeline_raw(
         run_extraction=run_extraction,
