@@ -19,7 +19,7 @@ def find_time_outliers(con: db.DuckDBPyConnection, time_cutoff: float) -> pl.Dat
     join
         chm
     on
-        image_stats.samplecode = chm.samplecode
+        image_stats.runid = chm.runid
     where
         mins_max < ?
     """,
@@ -31,30 +31,30 @@ def create_excluded_tbl(con: db.DuckDBPyConnection) -> None:
     con.sql(
         """--sql
     create or replace table excluded (
-        samplecode varchar primary key references chm(samplecode),
+        runid varchar primary key references chm(runid),
         reason varchar not null
     );
     """
     )
 
 
-def exclude_sample(con: db.DuckDBPyConnection, samplecode: str, reason: str) -> None:
+def exclude_sample(con: db.DuckDBPyConnection, runid: str, reason: str) -> None:
     """
-    As shown in `find_time_outliers`, sample `samplecode` = 61 is an aborted run with a runtime
+    As shown in `find_time_outliers`, sample `runid` = 61 is an aborted run with a runtime
     of 14 seconds, and is to be added to the excluded list.
     """
     con.execute(
         """--sql
         insert into excluded
             select
-                samplecode,
+                runid,
                 ? as reason
             from
                 chm
             where
-                samplecode = ?;
+                runid = ?;
         """,
-        parameters=[reason, samplecode],
+        parameters=[reason, runid],
     )
 
 
@@ -62,7 +62,7 @@ def add_3_16_grads_to_excluded(con: db.DuckDBPyConnection) -> None:
     con.sql(
         """--sql
     insert into excluded
-        select samplecode, 'gradient not equal to 2.5' as reason from gradients where gradient != 2.5
+        select runid, 'gradient not equal to 2.5' as reason from gradients where gradient != 2.5
     """
     )
 
@@ -81,7 +81,7 @@ def create_inc_chm_view(con: db.DuckDBPyConnection) -> None:
         anti join
             excluded
         on
-            excluded.samplecode = chm.samplecode;
+            excluded.runid = chm.runid;
     """)
 
 
@@ -100,7 +100,7 @@ def create_inc_img_stats(con: db.DuckDBPyConnection) -> None:
         anti join
             excluded exc
         on
-            ist.samplecode = exc.samplecode;
+            ist.runid = exc.runid;
     """
     )
 
@@ -113,7 +113,7 @@ def gen_included_views(
     """
     generate the `excluded` table, a collection of samples deemed inappropriate for
     inclusion in the main dataset, but possibly worth reclaiming. Creates the table,
-    adds sample `samplecode` = 61, and creates two views: `inc_chm` and `inc_img_stats`
+    adds sample `runid` = 61, and creates two views: `inc_chm` and `inc_img_stats`
     reflecting the subset of the respective tables to the included samples.
 
     The resason for this approach is that downstream processes can add runs to the
@@ -130,9 +130,7 @@ def gen_included_views(
 
     for sample in excluded_samples:
         if sample:
-            exclude_sample(
-                con=con, samplecode=sample["samplecode"], reason=sample["reason"]
-            )
+            exclude_sample(con=con, runid=sample["runid"], reason=sample["reason"])
     add_3_16_grads_to_excluded(con=con)
     create_inc_chm_view(con=con)
     create_inc_img_stats(con=con)

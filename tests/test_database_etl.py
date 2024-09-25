@@ -298,7 +298,7 @@ def test_load_image_stats(
 
 @pytest.fixture
 def excluded_samples() -> list[dict[str, str]]:
-    return [{"samplecode": "54", "reason": "test"}]
+    return [{"runid": "54", "reason": "test"}]
 
 
 @pytest.fixture
@@ -401,7 +401,7 @@ def test_etl_pipeline_raw_full_dset(
     ct_un: str,
     excluded_samples: list[dict[str, str]] = [
         {
-            "samplecode": "2021-debortoli-cabernet-merlot_avantor",
+            "runid": "2021-debortoli-cabernet-merlot_avantor",
             "reason": "aborted run",
         }
     ],

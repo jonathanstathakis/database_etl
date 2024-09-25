@@ -1,7 +1,7 @@
 
 create temp view chm_st_join as
 select
-    chm.ch_samplecode as samplecode,
+    chm.ch_runid as runid,
     chm.acq_date,
     chm.acq_method,
     chm.inj_vol,
@@ -24,7 +24,7 @@ from
     chm_st_join;
 
 create table chm (
-        samplecode varchar primary key,
+        runid varchar primary key,
         st_samplecode varchar references st(samplecode) not null,
         acq_date datetime unique,
         acq_method varchar not null,
@@ -38,7 +38,7 @@ create table chm (
     );
 insert into chm by name
     select
-        samplecode as samplecode,
+        runid as runid,
         st_samplecode as st_samplecode,
         acq_date as acq_date,
         acq_method as acq_method,

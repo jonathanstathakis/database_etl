@@ -47,7 +47,7 @@ def get_sample_metadata(con: db.DuckDBPyConnection) -> pd.DataFrame:
     anti join
         excluded exc
     on
-        chm.samplecode = exc.samplecode
+        chm.runid = exc.runid
     """
     ).df()
 
@@ -69,16 +69,14 @@ def get_paths(con: db.DuckDBPyConnection) -> list[str]:
     ]
 
 
-def add_samplecodes_to_images(
-    img: pd.DataFrame, con: db.DuckDBPyConnection
-) -> pd.DataFrame:
+def add_runids_to_images(img: pd.DataFrame, con: db.DuckDBPyConnection) -> pd.DataFrame:
     """
-    join the img file to chm to add the samplecode
+    join the img file to chm to add the runid
     """
     return con.sql(
         """--sql
     select
-        chm.samplecode,
+        chm.runid,
         img.*
     from
         img
@@ -100,7 +98,7 @@ def fetch_imgs(con: db.DuckDBPyConnection) -> list[pd.DataFrame]:
     # read the img file for each sample
 
     return [
-        add_samplecodes_to_images(img=pd.read_parquet(path), con=con)
+        add_runids_to_images(img=pd.read_parquet(path), con=con)
         .set_index("time")
         .rename_axis("wavelength", axis=1)
         for path in paths
@@ -116,7 +114,7 @@ def trim_times(imgs: list[pd.DataFrame], m: int) -> list[pd.DataFrame]:
 
     for img in imgs:
         if img.shape[0] < m:
-            raise ValueError(f"{img.samplecode[0]}")
+            raise ValueError(f"{img.runid[0]}")
     # check that all samples have the same dim sizes
 
     equal_length_samples = [img.iloc[0:m] for img in imgs]
@@ -190,8 +188,7 @@ def get_imgs_as_dict(con: db.DuckDBPyConnection, m: int) -> dict:
     imgs = fetch_imgs(con=con)
     time_aligned_imgs = align_df_times(imgs, m=m)
     return {
-        img["id"][0]: img.drop(["id", "samplecode"], axis=1)
-        for img in time_aligned_imgs
+        img["id"][0]: img.drop(["id", "runid"], axis=1) for img in time_aligned_imgs
     }
 
 

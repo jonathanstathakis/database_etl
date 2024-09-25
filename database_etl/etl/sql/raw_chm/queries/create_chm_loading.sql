@@ -1,5 +1,5 @@
 create table chm_loading (
-    ch_samplecode varchar primary key,
+    ch_runid varchar primary key,
     st_samplecode varchar unique,
     acq_date datetime unique not null,
     acq_method varchar not null,
@@ -15,7 +15,7 @@ create table chm_loading (
 
 insert into chm_loading
     select
-        notebook as ch_samplecode,
+        notebook as ch_runid,
         case
             when
                 len(notebook) = 4
@@ -60,7 +60,7 @@ insert into chm_loading
             else
                 notebook
             end
-                as st_samplecode,
+                as st_runid,
         cast(strptime(date::varchar, '%d-%b-%y, %H:%M:%S') as datetime) as acq_date,
         trim(lower(method::varchar)) as acq_method,
         injection_volume::float as inj_vol,

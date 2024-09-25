@@ -41,11 +41,11 @@ def extracted_metadata_to_db(
 
     pl.Config.set_fmt_str_lengths(999)
 
-    # add a 'date' ordered numbering to runs with duplicate samplecodes.
+    # add a 'date' ordered numbering to runs with duplicate runids.
 
-    metadata_df = con.sql(get_query("make_samplecodes_unique")).pl()
+    metadata_df = con.sql(get_query("make_runids_unique")).pl()
 
-    # double check that samplecode is now unique
+    # double check that runid is now unique
 
     assert (
         con.sql(

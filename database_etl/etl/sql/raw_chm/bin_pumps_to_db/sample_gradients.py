@@ -19,20 +19,20 @@ def calculate_gradient(con: db.DuckDBPyConnection) -> None:
         """--sql
     CREATE OR REPLACE view gradients AS (
         select
-            samplecode,
+            runid,
             percent_diff/time as gradient
         from (
             select
-                samplecode,
+                runid,
                 idx,
                 time,
                 percent,
-                percent - lag(percent) OVER (PARTITION BY samplecode ORDER BY idx) as percent_diff,
+                percent - lag(percent) OVER (PARTITION BY runid ORDER BY idx) as percent_diff,
                 --lag(percent) as percent_shift,
             from  (
                 select
-                samplecode,
-                dense_rank() OVER (partition by samplecode order by time) as idx,
+                runid,
+                dense_rank() OVER (partition by runid order by time) as idx,
                 time,
                 percent,
                 from
@@ -44,7 +44,7 @@ def calculate_gradient(con: db.DuckDBPyConnection) -> None:
         where
             idx = 2
         ORDER BY
-            samplecode,
+            runid,
             time
     );
     select

@@ -64,7 +64,7 @@ def load_image_stats_to_db(con: db.DuckDBPyConnection, image_stats_df: pl.DataFr
     con.sql(
         """--sql
     create or replace table image_stats (
-        samplecode varchar primary key,
+        runid varchar primary key,
         nm_min integer not null,
         nm_max integer not null,
         nm_count integer not null,
@@ -80,7 +80,7 @@ def load_image_stats_to_db(con: db.DuckDBPyConnection, image_stats_df: pl.DataFr
     );
     insert into image_stats
         select
-            chm.samplecode,
+            chm.runid,
             img.nm_min,
             img.nm_max,
             img.nm_count,
@@ -100,7 +100,7 @@ def load_image_stats_to_db(con: db.DuckDBPyConnection, image_stats_df: pl.DataFr
         using
             (id)
         order by
-            chm.samplecode;
+            chm.runid;
     """
     )
 

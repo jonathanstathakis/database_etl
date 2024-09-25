@@ -1,17 +1,17 @@
 CREATE TABLE IF NOT EXISTS timetables (
-    samplecode varchar REFERENCES chm (samplecode),
+    runid varchar REFERENCES chm (runid),
     idx integer NOT NULL,
     time float NOT NULL,
     a float NOT NULL,
     b float NOT NULL,
     flow float NOT NULL,
     pressure float NOT NULL,
-    PRIMARY KEY (samplecode, idx)
+    PRIMARY KEY (runid, idx)
 );
 
 INSERT INTO timetables
 SELECT
-    chm.samplecode,
+    chm.runid,
     tt.idx,
     tt.time,
     tt.a,
@@ -25,4 +25,4 @@ INNER JOIN
     ON
         tt.id = chm.id
 ORDER BY
-    chm.samplecode;
+    chm.runid;

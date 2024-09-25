@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS solvcomps (
-    samplecode varchar REFERENCES chm (samplecode),
+    runid varchar REFERENCES chm (runid),
     channel varchar NOT NULL,
     ch1_solv varchar NOT NULL,
     name_1 varchar,
@@ -8,12 +8,12 @@ CREATE TABLE IF NOT EXISTS solvcomps (
     selected varchar NOT NULL,
     used varchar NOT NULL,
     percent float NOT NULL,
-    PRIMARY KEY (samplecode, channel)
+    PRIMARY KEY (runid, channel)
 );
 
 INSERT INTO solvcomps
 SELECT
-    chm.samplecode,
+    chm.runid,
     sc.channel,
     sc.ch1_solv,
     sc.name_1,
@@ -29,4 +29,4 @@ INNER JOIN
     ON
         sc.id = chm.id
 ORDER BY
-    chm.samplecode;
+    chm.runid;

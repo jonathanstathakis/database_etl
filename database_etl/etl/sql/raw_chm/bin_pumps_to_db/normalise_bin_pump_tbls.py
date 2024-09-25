@@ -13,19 +13,19 @@ def create_pump_mech_params(
     con.execute(
         """--sql
     create table bin_pump_mech_params (
-    samplecode varchar primary key references chm(samplecode),
+    runid varchar primary key references chm(runid),
     flow FLOAT,
     pressure FLOAT,
     );
     insert into bin_pump_mech_params
         select
-            distinct samplecode,
+            distinct runid,
             flow,
             pressure
         from
             timetables
         order by
-            samplecode;
+            runid;
     """
     )
 
@@ -37,16 +37,16 @@ def create_channels(
         """--sql
     CREATE TABLE
     channels (
-        samplecode varchar references chm(samplecode),
+        runid varchar references chm(runid),
         time double not null,
         channel varchar not null,
         percent double not null,
-        primary key (samplecode, time, channel)
+        primary key (runid, time, channel)
     );
     insert into channels
         unpivot (
             select
-                samplecode,
+                runid,
                 time,
                 a,
                 b,
@@ -61,7 +61,7 @@ def create_channels(
             value
                 percent
         order by
-            samplecode,
+            runid,
             time,
             channel
 """
@@ -72,14 +72,14 @@ def create_solvents(con: db.DuckDBPyConnection) -> None:
     con.execute(
         """--sql
     CREATE TABLE solvents (
-        samplecode varchar primary key references chm(samplecode),
+        runid varchar primary key references chm(runid),
         a varchar,
         b varchar,
     );
     insert into solvents
         pivot
             (select
-                samplecode,
+                runid,
                 lower(channel) as channel,
                 ch1_solv
             from
@@ -90,7 +90,7 @@ def create_solvents(con: db.DuckDBPyConnection) -> None:
         using
             first(ch1_solv)
         order by
-            samplecode
+            runid
     """
     )
 
@@ -107,36 +107,36 @@ def load_solvprop_over_time(
     con.execute(
         """--sql
         CREATE TABLE solvprop_over_time (
-            samplecode varchar references chm(samplecode),
+            runid varchar references chm(runid),
             time double,
             channel varchar,
             percent double,
-            primary key (samplecode, time, channel)
+            primary key (runid, time, channel)
         );
 
         INSERT INTO solvprop_over_time (
             with solvcomp_subset as (
             select
-                samplecode,
+                runid,
                 CAST(0 as double) as time,
                 lower(channel) as channel,
                 percent
             FROM
                 solvcomps
             ORDER BY
-                samplecode,
+                runid,
                 time,
                 channel
             )
             select
-                samplecode,
+                runid,
                 time,
                 channel,
                 percent
             from channels
             UNION
                 select
-                    samplecode,
+                    runid,
                     time,
                     channel,
                     percent

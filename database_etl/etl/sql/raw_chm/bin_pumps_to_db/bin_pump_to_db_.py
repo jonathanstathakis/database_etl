@@ -260,7 +260,7 @@ def load_solvcomps(
                 from
                     solvcomps
                 order by
-                    samplecode
+                    runid
                 """
                     ).df()
                 )
