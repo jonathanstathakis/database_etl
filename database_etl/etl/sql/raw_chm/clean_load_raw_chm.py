@@ -22,9 +22,7 @@ def get_query(name: str):
         return f.read()
 
 
-def extracted_metadata_to_db(
-    con: db.DuckDBPyConnection, lib_dir: Path, overwrite: bool = False
-):
+def load_chm(con: db.DuckDBPyConnection, lib_dir: Path, overwrite: bool = False):
     logger.info("metadata_to_db..")
     if overwrite:
         con.execute("drop table if exists chm cascade")

@@ -4,21 +4,28 @@ Use fixtures to manage pipeline dependencies, execution order. Table A needs tab
  called, just included in the parameters.
 """
 
-import pytest
-import duckdb as db
 from pathlib import Path
-from database_etl.etl.sql.ct import get_clean_ct
-from database_etl.etl.sql.raw_st import clean_load_raw_st
-from database_etl.definitions import RAW_DATA_LIB
-from database_etl.etl.sql.raw_chm import extracted_metadata_to_db
+
+import duckdb as db
+import polars as pl
+import pytest
 import xarray as xr
-from database_etl.etl.sql.etl_pipeline_raw import etl_pipeline_raw
 from xarray import testing as xr_test
+
+from database_etl.definitions import RAW_DATA_LIB
+from database_etl.etl.sql.ct import load_ct
+from database_etl.etl.sql.etl_pipeline_raw import (
+    etl_pipeline_raw,
+    get_imgs_as_dict,
+    get_metadata_as_dict,
+)
+from database_etl.etl.sql.raw_chm import load_chm
 from database_etl.etl.sql.raw_chm.bin_pumps_to_db.bin_pump_to_db_ import bin_pump_to_db
 from database_etl.etl.sql.raw_chm.bin_pumps_to_db.normalise_bin_pump_tbls import (
     normalise_bin_pump_tbls,
 )
-from database_etl.etl.sql.to_xr import sql_to_xr
+from database_etl.etl.sql.raw_st import clean_load_raw_st
+from database_etl.etl.to_xr import data_dicts_to_xr
 
 
 @pytest.fixture(scope="module")
@@ -53,14 +60,12 @@ def testcon() -> db.DuckDBPyConnection:
 
 
 @pytest.fixture(scope="module")
-def db_w_clean_ct(
-    ct_un, ct_pw, testcon: db.DuckDBPyConnection
-) -> db.DuckDBPyConnection:
+def exc_load_ct(ct_un, ct_pw, testcon: db.DuckDBPyConnection) -> db.DuckDBPyConnection:
     """
     test if load ct can write to db
     """
 
-    get_clean_ct(un=ct_un, pw=ct_pw, con=testcon, output="db", overwrite=True)
+    load_ct(un=ct_un, pw=ct_pw, con=testcon, output="db", overwrite=True)
     result = testcon.sql(
         """--sql
         select count(*) > 0 from ct
@@ -73,8 +78,8 @@ def db_w_clean_ct(
     return testcon
 
 
-def test_load_clean_ct(db_w_clean_ct: db.DuckDBPyConnection) -> None:
-    assert db_w_clean_ct
+def test_load_clean_ct(exc_load_ct: db.DuckDBPyConnection) -> None:
+    assert exc_load_ct
 
 
 @pytest.fixture(scope="module")
@@ -85,7 +90,7 @@ def dirty_st_path() -> Path:
 
 
 @pytest.fixture(scope="module")
-def exc_clean_load_raw_st(
+def exc_load_raw_st(
     testcon: db.DuckDBPyConnection, dirty_st_path
 ) -> db.DuckDBPyConnection:
     """
@@ -102,27 +107,25 @@ def exc_clean_load_raw_st(
 
 
 def test_clean_load_raw_st(
-    db_w_clean_ct: db.DuckDBPyConnection, exc_clean_load_raw_st: db.DuckDBPyConnection
+    exc_load_ct: db.DuckDBPyConnection, exc_load_raw_st: db.DuckDBPyConnection
 ) -> None:
-    assert exc_clean_load_raw_st
+    assert exc_load_raw_st
 
 
 @pytest.fixture(scope="module")
 def db_w_ct_st(
-    db_w_clean_ct: db.DuckDBPyConnection,
-    exc_clean_load_raw_st: db.DuckDBPyConnection,
+    exc_load_ct: db.DuckDBPyConnection,
+    exc_load_raw_st: db.DuckDBPyConnection,
 ):
     """
     ensure that both fixtures `db_w_clean_ct` and `db_w_clean_st` are executed, check
     that the tables are present as expected, and return one of the objects, shouldnt matter
     which.
     """
-    tables = [
-        result[0] for result in exc_clean_load_raw_st.execute("show tables").fetchall()
-    ]
+    tables = [result[0] for result in exc_load_raw_st.execute("show tables").fetchall()]
 
     assert sorted(["ct", "st", "st_not_in_ct"]) == sorted(tables)
-    return exc_clean_load_raw_st
+    return exc_load_raw_st
 
 
 def test_db_w_ct_st(db_w_ct_st: db.DuckDBPyConnection):
@@ -155,7 +158,7 @@ def test_get_metadata_file_paths() -> None:
 
 
 @pytest.fixture(scope="module")
-def exc_clean_extrac_mtad_to_db(
+def exc_load_chm(
     db_w_ct_st: db.DuckDBPyConnection, test_data_dir: Path
 ) -> db.DuckDBPyConnection:
     """
@@ -163,7 +166,7 @@ def exc_clean_extrac_mtad_to_db(
     """
     # need st in db
 
-    extracted_metadata_to_db(con=db_w_ct_st, lib_dir=test_data_dir, overwrite=True)
+    load_chm(con=db_w_ct_st, lib_dir=test_data_dir, overwrite=True)
 
     result = db_w_ct_st.execute("select count(*) > 0 from chm").fetchone()
 
@@ -174,23 +177,21 @@ def exc_clean_extrac_mtad_to_db(
 
 
 def test_extracted_metadata_to_db(
-    exc_clean_extrac_mtad_to_db: db.DuckDBPyConnection,
+    exc_load_chm: db.DuckDBPyConnection,
 ) -> None:
     """
     Test `clean_load_raw_chm`. Logic is in the fixture
     """
-    assert exc_clean_extrac_mtad_to_db
+    assert exc_load_chm
 
 
 @pytest.fixture(scope="module")
 def db_w_ct_st_chm_bin_pumps(
-    exc_clean_extrac_mtad_to_db: db.DuckDBPyConnection, raw_ch_d_paths: list[Path]
+    exc_load_chm: db.DuckDBPyConnection, raw_ch_d_paths: list[Path]
 ) -> db.DuckDBPyConnection:
-    bin_pump_to_db(
-        paths=raw_ch_d_paths, con=exc_clean_extrac_mtad_to_db, overwrite=True
-    )
+    bin_pump_to_db(paths=raw_ch_d_paths, con=exc_load_chm, overwrite=True)
 
-    return exc_clean_extrac_mtad_to_db
+    return exc_load_chm
 
 
 def test_bin_pump_to_db(db_w_ct_st_chm_bin_pumps: db.DuckDBPyConnection) -> None:
@@ -284,10 +285,10 @@ def exc_load_image_stats(
 
 
 def test_load_image_stats(
-    exc_clean_extrac_mtad_to_db: db.DuckDBPyConnection,
+    exc_load_chm: db.DuckDBPyConnection,
     exc_load_image_stats: db.DuckDBPyConnection,
 ) -> None:
-    if result := exc_clean_extrac_mtad_to_db.execute(
+    if result := exc_load_chm.execute(
         "select count(*) > 0 from image_stats"
     ).fetchone():
         assert result[0]
@@ -304,7 +305,7 @@ def excluded_samples() -> list[dict[str, str]]:
 
 @pytest.fixture
 def exc_gen_excluded_inc(
-    exc_clean_extrac_mtad_to_db: db.DuckDBPyConnection,
+    exc_load_chm: db.DuckDBPyConnection,
     exc_load_image_stats: db.DuckDBPyConnection,
     excluded_samples: list[dict[str, str]],
 ) -> db.DuckDBPyConnection:
@@ -345,12 +346,32 @@ def test_gen_excluded_tbl_inc_chm_view_inc_img_view(
 
 
 @pytest.fixture
+def img_dict(
+    exc_load_image_stats: db.DuckDBPyConnection,
+    exc_get_sample_gradients: db.DuckDBPyConnection,
+    exc_gen_excluded_inc: db.DuckDBPyConnection,
+) -> dict[str, pl.DataFrame]:
+    return get_imgs_as_dict(exc_get_sample_gradients)
+
+
+@pytest.fixture
+def metadata_dict(
+    exc_load_raw_st: db.DuckDBPyConnection,
+    exc_load_chm: db.DuckDBPyConnection,
+    exc_load_ct: db.DuckDBPyConnection,
+) -> dict:
+    return get_metadata_as_dict(con=exc_load_ct)
+
+
+@pytest.fixture
 def xr_from_sql(
     exc_load_image_stats: db.DuckDBPyConnection,
     exc_get_sample_gradients: db.DuckDBPyConnection,
     exc_gen_excluded_inc: db.DuckDBPyConnection,
+    metadata_dict: dict,
+    img_dict: dict,
 ) -> xr.Dataset:
-    dset = sql_to_xr(con=exc_get_sample_gradients)
+    dset = data_dicts_to_xr(img_dict=img_dict, metadata_dict=metadata_dict)
 
     assert dset
 
@@ -377,12 +398,13 @@ def test_etl_pipeline_raw(
     excluded_samples: list[dict[str, str]],
     testcon: db.DuckDBPyConnection = db.connect(),
     output: str = "xr",
-):
+) -> None:
     """
     Test the execution of the full pipeline judged by whether the resulting xr.Dataset
     equals a stored version created from the same process.
     """
-    dset: xr.Dataset = etl_pipeline_raw(
+
+    result = etl_pipeline_raw(
         data_dir=test_data_dir,
         con=testcon,
         dirty_st_path=dirty_st_path,
@@ -392,6 +414,11 @@ def test_etl_pipeline_raw(
         excluded_samples=excluded_samples,
         output=output,
     )
+
+    if isinstance(result, xr.Dataset):
+        dset = result
+    else:
+        raise TypeError("expected xr.Dataset")
 
     assert dset
 
