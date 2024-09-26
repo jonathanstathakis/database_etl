@@ -15,7 +15,7 @@ from xarray import testing as xr_test
 from database_etl.definitions import RAW_DATA_LIB
 from database_etl.etl.sql.cs import load_image_stats
 from database_etl.etl.sql.ct import load_ct
-from database_etl.etl.sql.etl_pipeline_raw import (
+from database_etl.etl.etl_pipeline_raw import (
     etl_pipeline_raw,
     fetch_imgs,
     get_data,
