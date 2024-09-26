@@ -11,32 +11,32 @@ def calculate_gradient(con: db.DuckDBPyConnection) -> None:
     select
         *
     from
-        solvprop_over_time
+        solvprop_over_mins
     """
     ).fetchall():
-        raise ValueError("solvprop_over_time is empty")
+        raise ValueError("solvprop_over_mins is empty")
     con.sql(
         """--sql
     CREATE OR REPLACE view gradients AS (
         select
             runid,
-            percent_diff/time as gradient
+            percent_diff/mins as gradient
         from (
             select
                 runid,
                 idx,
-                time,
+                mins,
                 percent,
                 percent - lag(percent) OVER (PARTITION BY runid ORDER BY idx) as percent_diff,
                 --lag(percent) as percent_shift,
             from  (
                 select
                 runid,
-                dense_rank() OVER (partition by runid order by time) as idx,
-                time,
+                dense_rank() OVER (partition by runid order by mins) as idx,
+                mins,
                 percent,
                 from
-                    solvprop_over_time
+                    solvprop_over_mins
                 where
                     channel = 'b'
             )
@@ -45,7 +45,7 @@ def calculate_gradient(con: db.DuckDBPyConnection) -> None:
             idx = 2
         ORDER BY
             runid,
-            time
+            mins
     );
     select
         *

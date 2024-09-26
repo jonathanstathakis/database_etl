@@ -22,9 +22,9 @@ def image_stats_from_files(image_files: list[Path]) -> pl.DataFrame:
         nm_count = len(df.columns)
 
         # time
-        mins_min = df.select("time").min().item()
-        mins_max = df.select("time").max().item()
-        mins_count = df.select("time").count().item()
+        mins_min = df.select("mins").min().item()
+        mins_max = df.select("mins").max().item()
+        mins_count = df.select("mins").count().item()
 
         # abs @ 256
         abs_min = df.select("256").min().item()
@@ -33,7 +33,7 @@ def image_stats_from_files(image_files: list[Path]) -> pl.DataFrame:
         abs_argmax = df.select("256").to_series().arg_max()
 
         # hertz
-        hertz = df.select(pl.col("time").diff().mul(60).pow(-1).mean().round(2))
+        hertz = df.select(pl.col("mins").diff().mul(60).pow(-1).mean().round(2))
 
         image_stats_.append(
             pl.DataFrame(
@@ -60,6 +60,9 @@ def image_stats_from_files(image_files: list[Path]) -> pl.DataFrame:
 
 
 def load_image_stats_to_db(con: db.DuckDBPyConnection, image_stats_df: pl.DataFrame):
+    """
+    Expects chm to be in db
+    """
     image_stats_df = image_stats_df  # to fool lsp
     con.sql(
         """--sql
@@ -108,9 +111,21 @@ def load_image_stats_to_db(con: db.DuckDBPyConnection, image_stats_df: pl.DataFr
 def load_image_stats(
     lib_path: Path, con: db.DuckDBPyConnection, overwrite: bool = False
 ) -> None:
+    """
+    expects chm to be in db
+    """
     logger.info("load_image_stats..")
     if overwrite:
         con.execute("drop table if exists image_stats")
+
+    if (
+        "chm"
+        not in con.execute("select name from (show tables) where name ='chm'").pl()[
+            "name"
+        ]
+    ):
+        raise RuntimeError("Expect chm to be in db")
+
     image_file_paths = get_image_filepaths(lib_path=lib_path)
     image_stats_df = image_stats_from_files(image_files=image_file_paths)
     load_image_stats_to_db(con=con, image_stats_df=image_stats_df)

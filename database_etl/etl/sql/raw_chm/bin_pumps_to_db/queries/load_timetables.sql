@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS timetables (
     runid varchar REFERENCES chm (runid),
     idx integer NOT NULL,
-    time float NOT NULL,
+    mins float NOT NULL,
     a float NOT NULL,
     b float NOT NULL,
     flow float NOT NULL,
@@ -13,7 +13,7 @@ INSERT INTO timetables
 SELECT
     chm.runid,
     tt.idx,
-    tt.time,
+    tt.mins,
     tt.a,
     tt.b,
     tt.flow,

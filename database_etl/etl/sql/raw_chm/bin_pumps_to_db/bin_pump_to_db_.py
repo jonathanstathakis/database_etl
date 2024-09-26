@@ -58,8 +58,9 @@ def format_timetable(timetable: pd.DataFrame, id: str):
     timetable["id"] = id
     timetable.columns = [col.lower() for col in timetable.columns]
     timetable = timetable.reset_index(names="idx")
+    timetable = timetable.rename({"time": "mins"}, axis=1)
     try:
-        timetable = timetable[["id", "idx", "time", "a", "b", "flow", "pressure"]]
+        timetable = timetable[["id", "idx", "mins", "a", "b", "flow", "pressure"]]
     except KeyError as e:
         e.add_note(str(timetable.columns))
         raise e
@@ -260,7 +261,7 @@ def load_solvcomps(
                 from
                     solvcomps
                 order by
-                    runid
+                    samplecode
                 """
                     ).df()
                 )

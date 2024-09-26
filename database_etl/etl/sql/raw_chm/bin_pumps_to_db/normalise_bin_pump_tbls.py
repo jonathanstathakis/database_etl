@@ -38,16 +38,16 @@ def create_channels(
     CREATE TABLE
     channels (
         runid varchar references chm(runid),
-        time double not null,
+        mins double not null,
         channel varchar not null,
         percent double not null,
-        primary key (runid, time, channel)
+        primary key (runid, mins, channel)
     );
     insert into channels
         unpivot (
             select
                 runid,
-                time,
+                mins,
                 a,
                 b,
             from
@@ -62,7 +62,7 @@ def create_channels(
                 percent
         order by
             runid,
-            time,
+            mins,
             channel
 """
     )
@@ -95,49 +95,49 @@ def create_solvents(con: db.DuckDBPyConnection) -> None:
     )
 
 
-def load_solvprop_over_time(
+def load_solvprop_over_mins(
     con: db.DuckDBPyConnection, overwrite: bool = False
 ) -> None:
     if overwrite:
         con.execute(
             """--sql
-        drop table if exists solvprop_over_time;
+        drop table if exists solvprop_over_mins;
         """
         )
     con.execute(
         """--sql
-        CREATE TABLE solvprop_over_time (
+        CREATE TABLE solvprop_over_mins (
             runid varchar references chm(runid),
-            time double,
+            mins double,
             channel varchar,
             percent double,
-            primary key (runid, time, channel)
+            primary key (runid, mins, channel)
         );
 
-        INSERT INTO solvprop_over_time (
+        INSERT INTO solvprop_over_mins (
             with solvcomp_subset as (
             select
                 runid,
-                CAST(0 as double) as time,
+                CAST(0 as double) as mins,
                 lower(channel) as channel,
                 percent
             FROM
                 solvcomps
             ORDER BY
                 runid,
-                time,
+                mins,
                 channel
             )
             select
                 runid,
-                time,
+                mins,
                 channel,
                 percent
             from channels
             UNION
                 select
                     runid,
-                    time,
+                    mins,
                     channel,
                     percent
                 from
@@ -147,11 +147,11 @@ def load_solvprop_over_time(
     )
 
 
-def create_solvprop_over_time(
+def create_solvprop_over_mins(
     con: db.DuckDBPyConnection, overwrite: bool = False
 ) -> None:
     create_channels(con=con)
-    load_solvprop_over_time(con=con, overwrite=overwrite)
+    load_solvprop_over_mins(con=con, overwrite=overwrite)
 
 
 def normalise_bin_pump_tbls(
@@ -159,7 +159,7 @@ def normalise_bin_pump_tbls(
 ) -> None:
     create_pump_mech_params(con=con, overwrite=overwrite)
     create_solvents(con=con)
-    create_solvprop_over_time(con=con, overwrite=overwrite)
+    create_solvprop_over_mins(con=con, overwrite=overwrite)
 
     # clean up the normalised tables
     con.sql(

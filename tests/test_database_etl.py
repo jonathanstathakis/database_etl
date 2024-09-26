@@ -13,13 +13,15 @@ import xarray as xr
 from xarray import testing as xr_test
 
 from database_etl.definitions import RAW_DATA_LIB
+from database_etl.etl.sql.cs import load_image_stats
 from database_etl.etl.sql.ct import load_ct
 from database_etl.etl.sql.etl_pipeline_raw import (
     etl_pipeline_raw,
+    fetch_imgs,
+    get_data,
     get_imgs_as_dict_numeric_cols_only,
     get_metadata_as_dict,
     get_paths,
-    fetch_imgs,
 )
 from database_etl.etl.sql.raw_chm import load_chm
 from database_etl.etl.sql.raw_chm.bin_pumps_to_db.bin_pump_to_db_ import bin_pump_to_db
@@ -39,6 +41,16 @@ def test_data_dir():
     assert path.is_dir()
     assert list(path.glob("*"))
     return path
+
+
+@pytest.fixture(scope="module")
+def test_d_paths(test_data_dir) -> list[Path]:
+    result = list(test_data_dir.glob("*.D"))
+
+    if result:
+        return result
+    else:
+        raise ValueError("no D found")
 
 
 @pytest.fixture(scope="module")
@@ -134,12 +146,6 @@ def test_db_w_ct_st(db_w_ct_st: db.DuckDBPyConnection):
     assert db_w_ct_st
 
 
-@pytest.fixture(scope="module")
-def raw_ch_d_paths() -> list[Path]:
-    d_dirs = ["021.D", "089.D", "061.D"]
-    return [RAW_DATA_LIB / x for x in d_dirs]
-
-
 def test_get_metadata_file_paths() -> None:
     """
     test whether `etl.sql.raw_chm.clean_load_raw_chm` works
@@ -151,12 +157,18 @@ def test_get_metadata_file_paths() -> None:
 
     assert result
 
+@pytest.mark.skip('takes a while to run')
+def test_extract_ch(test_d_paths: list[Path]) -> None:
+    """
+    create a new dir with the extracted ch data
+    """
+    from database_etl.etl.ch_extractor import extract_run_data
 
-# pytest.fixture(scope="module")
-# def extract_ch(raw_ch_d_paths: list[Path], tmp_path_factory) -> Path:
-#     """
-#     create a new dir with the extracted ch data
-#     """
+    results = []
+    for path in test_d_paths:
+        results.append(extract_run_data(path=path, overwrite=True))
+
+    assert results
 
 
 @pytest.fixture(scope="module")
@@ -189,9 +201,9 @@ def test_extracted_metadata_to_db(
 
 @pytest.fixture(scope="module")
 def db_w_ct_st_chm_bin_pumps(
-    exc_load_chm: db.DuckDBPyConnection, raw_ch_d_paths: list[Path]
+    exc_load_chm: db.DuckDBPyConnection, test_d_paths: list[Path]
 ) -> db.DuckDBPyConnection:
-    bin_pump_to_db(paths=raw_ch_d_paths, con=exc_load_chm, overwrite=True)
+    bin_pump_to_db(paths=test_d_paths, con=exc_load_chm, overwrite=True)
 
     return exc_load_chm
 
@@ -230,7 +242,7 @@ def db_w_ct_st_chm_norm_bin_pump(
         ).fetchall()
     ]
 
-    expected_tables = ["bin_pump_mech_params", "solvents", "solvprop_over_time"]
+    expected_tables = ["bin_pump_mech_params", "solvents", "solvprop_over_mins"]
 
     for table in expected_tables:
         assert table in tables
@@ -274,13 +286,11 @@ def test_get_sample_gradients(exc_get_sample_gradients: db.DuckDBPyConnection) -
         raise ValueError("no result returned")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def exc_load_image_stats(
     testcon: db.DuckDBPyConnection,
     test_data_dir: Path,
 ) -> db.DuckDBPyConnection:
-    from database_etl.etl.sql.cs import load_image_stats
-
     load_image_stats(lib_path=test_data_dir, con=testcon, overwrite=True)
 
     return testcon
@@ -300,7 +310,7 @@ def test_load_image_stats(
     assert exc_load_image_stats
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def excluded_samples() -> list[dict[str, str]]:
     return [{"runid": "54", "reason": "test"}]
 
@@ -347,75 +357,21 @@ def test_gen_excluded_tbl_inc_chm_view_inc_img_view(
             raise ValueError(f"{obj} has no rows")
 
 
-@pytest.fixture
-def paths(exc_load_image_stats):
-    return get_paths(con=exc_load_image_stats)
-
-
-@pytest.fixture
-def imgs(exc_load_image_stats: db.DuckDBPyConnection) -> list[pl.DataFrame]:
-    return fetch_imgs(con=exc_load_image_stats)
-
-
-@pytest.fixture
-def img_dict(imgs: list[pl.DataFrame]) -> dict[str, pl.DataFrame]:
-    return get_imgs_as_dict_numeric_cols_only(imgs=imgs)
-
-
-@pytest.fixture
-def metadata_dict(
-    exc_load_raw_st: db.DuckDBPyConnection,
-    exc_load_chm: db.DuckDBPyConnection,
-    exc_load_ct: db.DuckDBPyConnection,
-) -> dict:
-    return get_metadata_as_dict(con=exc_load_ct)
-
-
-@pytest.fixture
-def xr_from_sql(
-    exc_load_image_stats: db.DuckDBPyConnection,
-    exc_get_sample_gradients: db.DuckDBPyConnection,
-    exc_gen_excluded_inc: db.DuckDBPyConnection,
-    metadata_dict: dict,
-    img_dict: dict,
-) -> xr.Dataset:
-    assert isinstance(img_dict, dict)
-    assert isinstance(metadata_dict, dict)
-
-    dset = data_dicts_to_xr(img_dict=img_dict, metadata_dict=metadata_dict)
-
-    assert dset
-
-    assert len(dset.mins) == 7800
-
-    return dset
-
-
-def test_sql_to_xr(xr_from_sql: xr.Dataset) -> None:
-    assert xr_from_sql
-
-
-@pytest.fixture
-def test_dset_path(test_data_dir: Path) -> xr.Dataset:
-    return test_data_dir / "test_dset.nc"
-
-
-def test_etl_pipeline_raw(
+@pytest.fixture(scope="module")
+def exc_etl_pipeline_raw(
     test_data_dir: Path,
     dirty_st_path: Path,
     ct_pw: str,
     ct_un: str,
-    test_dset_path: Path,
     excluded_samples: list[dict[str, str]],
     testcon: db.DuckDBPyConnection = db.connect(),
-    output: str = "xr",
-) -> None:
+) -> db.DuckDBPyConnection:
     """
     Test the execution of the full pipeline judged by whether the resulting xr.Dataset
     equals a stored version created from the same process.
     """
 
-    result = etl_pipeline_raw(
+    etl_pipeline_raw(
         data_dir=test_data_dir,
         con=testcon,
         dirty_st_path=dirty_st_path,
@@ -423,17 +379,33 @@ def test_etl_pipeline_raw(
         ct_un=ct_un,
         run_extraction=False,
         excluded_samples=excluded_samples,
-        output=output,
     )
 
-    if isinstance(result, xr.Dataset):
-        dset = result
+    return testcon
+
+
+@pytest.fixture(scope="module")
+def test_dset_path(test_data_dir: Path) -> Path:
+    return test_data_dir / "test_dset.nc"
+
+
+@pytest.fixture(scope="module")
+def xr_dset_mock(exc_etl_pipeline_raw: db.DuckDBPyConnection) -> xr.Dataset:
+    result = get_data(output="xr", con=exc_etl_pipeline_raw)
+    if result:
+        if isinstance(result, xr.Dataset):
+            dset = result
+        else:
+            raise TypeError("expected xr.Dataset")
+
+        assert dset
+        return result
     else:
-        raise TypeError("expected xr.Dataset")
+        raise RuntimeError
 
-    assert dset
 
-    xr_test.assert_equal(dset, xr.open_dataset(test_dset_path))
+def test_xr_dset_raw(xr_dset_mock: xr.Dataset, test_dset_path: Path) -> None:
+    xr_test.assert_equal(xr_dset_mock, xr.open_dataset(test_dset_path))
 
 
 def test_etl_pipeline_raw_full_dset(
@@ -447,17 +419,13 @@ def test_etl_pipeline_raw_full_dset(
         }
     ],
     full_lib_dir: Path = Path("../../../jonathan/uni/0_jono_data/raw_uv").resolve(),
-    run_extraction: bool = False,
-    output: str = "xr",
+    run_extraction: bool = True,
 ) -> None:
-    dset = etl_pipeline_raw(
+    etl_pipeline_raw(
         run_extraction=run_extraction,
         data_dir=full_lib_dir,
         dirty_st_path=dirty_st_path,
         ct_pw=ct_pw,
         ct_un=ct_un,
         excluded_samples=excluded_samples,
-        output=output,
     )
-
-    assert dset
