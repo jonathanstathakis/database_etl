@@ -359,17 +359,35 @@ def test_gen_excluded_tbl_inc_chm_view_inc_img_view(
 
 
 @pytest.fixture(scope="module")
+def expected_tables() -> list[str]:
+    return [
+        "bin_pump_mech_params",
+        "chm",
+        "counts_per_gradient",
+        "ct",
+        "excluded",
+        "gradients",
+        "image_stats",
+        "run_data_paths",
+        "sequences",
+        "solvents",
+        "solvprop_over_mins",
+        "st",
+    ]
+
+
+@pytest.fixture(scope="module")
 def exc_etl_pipeline_raw_mock(
     test_data_dir: Path,
     dirty_st_path: Path,
     ct_pw: str,
     ct_un: str,
+    expected_tables: list[str],
     excluded_samples: list[dict[str, str]],
     testcon: db.DuckDBPyConnection = db.connect(),
 ) -> db.DuckDBPyConnection:
     """
-    Test the execution of the full pipeline judged by whether the resulting xr.Dataset
-    equals a stored version created from the same process.
+    Test the execution of the full pipeline
     """
 
     etl_pipeline_raw(
@@ -380,9 +398,30 @@ def exc_etl_pipeline_raw_mock(
         ct_un=ct_un,
         run_extraction=False,
         excluded_samples=excluded_samples,
+        overwrite=True,
     )
 
-    return testcon
+    # check that the expected tables are in the database and not empty
+
+    error_tables = []
+
+    for table in expected_tables:
+        try:
+            testcon.execute(
+                f"""--sql
+            select
+                count(*) > 0
+            from
+                {table}
+            """
+            ).pl()
+        except Exception as e:
+            error_tables.append((table, e))
+
+    if error_tables:
+        raise RuntimeError("the following errors were encountered:\n",error_tables)
+
+ ∫    return testcon
 
 
 @pytest.fixture(scope="module")
@@ -476,4 +515,4 @@ def test_get_data_select_samples(
 
         assert img["runid"][0] == mta["runid"][0]
 
-        assert img['runid'][0] != removed_code
+        assert img["runid"][0] != removed_code

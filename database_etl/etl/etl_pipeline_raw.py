@@ -211,7 +211,7 @@ def etl_pipeline_raw(
             */
             drop table if exists st;
             drop table if exists excluded;
-            drop table if exists solvprop_over_time;
+            drop table if exists solvprop_over_mins;
             drop table if exists solvents;
             drop table if exists bin_pump_mech_params;
             drop table if exists chm;

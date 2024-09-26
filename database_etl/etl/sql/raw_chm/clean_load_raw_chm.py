@@ -24,9 +24,9 @@ def get_query(name: str):
 
 def load_chm(con: db.DuckDBPyConnection, lib_dir: Path, overwrite: bool = False):
     logger.info("metadata_to_db..")
-    if overwrite:
-        con.execute("drop table if exists chm cascade")
-        con.execute("drop sequence if exists chm_seq")
+    # if overwrite:
+        # con.execute("drop table if exists chm cascade")
+        # con.execute("drop sequence if exists chm_seq")
     paths = get_metadata_file_paths(lib_dir=lib_dir)
 
     # metadata_df is scanned in the query below
