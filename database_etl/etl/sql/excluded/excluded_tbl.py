@@ -105,6 +105,25 @@ def create_inc_img_stats(con: db.DuckDBPyConnection) -> None:
     )
 
 
+def add_paths_table(con: db.DuckDBPyConnection) -> None:
+    """
+    add a paths lookup table from the 'included' samples in `inc_chm` with primary key runid with 3 columns: dir path, data path and metadata path
+    """
+
+    con.execute(
+        """--sql
+        create view run_data_paths as
+            select
+                runid as runid,
+                path as path,
+                concat(path, '/data.parquet') as data_path,
+                concat(path, '/metadata.parquet') as meta_path
+            from
+                inc_chm
+        """
+    )
+
+
 def gen_included_views(
     con: db.DuckDBPyConnection,
     excluded_samples: list[dict[str, str]] = [{}],
@@ -134,3 +153,4 @@ def gen_included_views(
     add_3_16_grads_to_excluded(con=con)
     create_inc_chm_view(con=con)
     create_inc_img_stats(con=con)
+    add_paths_table(con=con)

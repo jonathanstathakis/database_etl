@@ -274,7 +274,7 @@ def test_get_sample_gradients(exc_get_sample_gradients: db.DuckDBPyConnection) -
         raise ValueError("no result returned")
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def exc_load_image_stats(
     testcon: db.DuckDBPyConnection,
     test_data_dir: Path,
@@ -300,12 +300,12 @@ def test_load_image_stats(
     assert exc_load_image_stats
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def excluded_samples() -> list[dict[str, str]]:
     return [{"runid": "54", "reason": "test"}]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def exc_gen_excluded_inc(
     exc_load_chm: db.DuckDBPyConnection,
     exc_load_image_stats: db.DuckDBPyConnection,
@@ -432,7 +432,7 @@ def test_etl_pipeline_raw(
         raise TypeError("expected xr.Dataset")
 
     assert dset
-    
+
     xr_test.assert_equal(dset, xr.open_dataset(test_dset_path))
 
 

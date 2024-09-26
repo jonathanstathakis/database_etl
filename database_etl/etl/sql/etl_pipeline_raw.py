@@ -92,17 +92,15 @@ def get_paths(con: db.DuckDBPyConnection) -> list[str]:
     """
     get the run cs img file path from the previously created `inc_image_stats` table.
     """
-    return [
-        path[0]
-        for path in con.sql(
-            """--sql
+
+    paths = con.sql("""--sql
     select
-        path
+        data_path
     from
-        inc_img_stats
-    """
-        ).fetchall()
-    ]
+        run_data_paths
+    """).fetchall()
+
+    return [path[0] for path in paths]
 
 
 def add_runid_to_img(img: pl.DataFrame, con: db.DuckDBPyConnection) -> pl.DataFrame:
