@@ -354,7 +354,7 @@ def xr_from_sql(
 
     assert dset
 
-    assert len(dset.time) == 7800
+    assert len(dset.mins) == 7800
 
     return dset
 

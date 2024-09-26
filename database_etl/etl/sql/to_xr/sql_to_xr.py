@@ -1,3 +1,4 @@
+import polars as pl
 import numpy as np
 import duckdb as db
 import xarray as xr
@@ -69,7 +70,7 @@ def get_paths(con: db.DuckDBPyConnection) -> list[str]:
     ]
 
 
-def add_runids_to_images(img: pd.DataFrame, con: db.DuckDBPyConnection) -> pd.DataFrame:
+def add_runids_to_images(img: pl.DataFrame, con: db.DuckDBPyConnection) -> pl.DataFrame:
     """
     join the img file to chm to add the runid
     """
@@ -86,10 +87,10 @@ def add_runids_to_images(img: pd.DataFrame, con: db.DuckDBPyConnection) -> pd.Da
     on
         chm.id = img.id
     """
-    ).df()
+    ).pl()
 
 
-def fetch_imgs(con: db.DuckDBPyConnection) -> list[pd.DataFrame]:
+def fetch_imgs(con: db.DuckDBPyConnection) -> list[pl.DataFrame]:
     """
     parse the parquet file of each run's chromatospectral image
     """
@@ -99,11 +100,9 @@ def fetch_imgs(con: db.DuckDBPyConnection) -> list[pd.DataFrame]:
     # read the img file for each sample
 
     return [
-        add_runids_to_images(img=pd.read_parquet(path), con=con)
-        .rename({"time": "mins"}, axis=1)
+        add_runids_to_images(img=pl.read_parquet(path), con=con)
+        .rename({"time": "mins"})
         .pipe(smooth_numeric_col, col="mins")
-        .set_index("mins")
-        .rename_axis("wavelength", axis=1)
         for path in paths
     ]
 
@@ -117,7 +116,7 @@ def trim_times(imgs: list[pd.DataFrame], m: int) -> list[pd.DataFrame]:
 
     for img in imgs:
         if img.shape[0] < m:
-            raise ValueError(f"{img.runid[0]}")
+            raise ValueError(f"{img['runid'][0]}")
     # check that all samples have the same dim sizes
 
     equal_length_samples = [img.iloc[0:m] for img in imgs]
@@ -130,14 +129,17 @@ def trim_times(imgs: list[pd.DataFrame], m: int) -> list[pd.DataFrame]:
     return equal_length_samples
 
 
-def smooth_numeric_col(df: pd.DataFrame, col: str) -> pd.DataFrame:
+def smooth_numeric_col(df: pl.DataFrame, col: str) -> pl.DataFrame:
     """
     relabel the time index of the df to the observation frequency evenly spaced, from
     0 to the last value of the index. Assumes that the index is the time dimension,
     in minute units and that the last value of the index is the maximum.
     """
 
-    df[col] = smooth_numeric_array(df[col].to_numpy())
+    df = df.with_columns(
+        pl.lit(smooth_numeric_array(df[col].to_numpy(writable=True))).alias(col)
+    )
+
     return df
 
 
@@ -159,7 +161,7 @@ def img_to_xr_dset(id: str, data_dict: dict):
     df = data_dict["data"]
 
     return xr.Dataset(
-        data_vars={"img": df},
+        data_vars={"img": df.set_index("mins").rename_axis("wavelength", axis=1)},
         coords={
             **{k: [v] for k, v in data_dict.items() if k != "data"},
             **{"id": [id]},
@@ -173,14 +175,14 @@ def get_metadata_as_dict(con: db.DuckDBPyConnection) -> dict:
     return metadata.set_index("id").to_dict(orient="index")
 
 
-def get_imgs_as_dict(con: db.DuckDBPyConnection) -> dict:
+def get_imgs_as_dict(con: db.DuckDBPyConnection) -> dict[str, pl.DataFrame]:
     """
     fetch all chromatospectral images for all samples in included chm returned as a
     dict with the 'chm.id' as the keys and the image dataframe as the value.
     """
     imgs = fetch_imgs(con=con)
 
-    return {img["id"][0]: img.drop(["id", "runid"], axis=1) for img in imgs}
+    return {img["id"][0]: img.drop(["id", "runid"]) for img in imgs}
 
 
 def sql_to_xr(con: db.DuckDBPyConnection, m: int = 7800) -> xr.Dataset:
@@ -199,7 +201,9 @@ def sql_to_xr(con: db.DuckDBPyConnection, m: int = 7800) -> xr.Dataset:
 
     metadata_as_dict = get_metadata_as_dict(con=con)
 
-    trimmed_imgs = trim_times(imgs=list(imgs_as_dict.values()), m=m)
+    pd_imgs = [img.to_pandas() for img in imgs_as_dict.values()]
+
+    trimmed_imgs = trim_times(imgs=pd_imgs, m=m)
 
     dataset_dict = {
         id: {"data": img, **metadata_as_dict[id]}
