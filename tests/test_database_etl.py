@@ -157,7 +157,8 @@ def test_get_metadata_file_paths() -> None:
 
     assert result
 
-@pytest.mark.skip('takes a while to run')
+
+@pytest.mark.skip("takes a while to run")
 def test_extract_ch(test_d_paths: list[Path]) -> None:
     """
     create a new dir with the extracted ch data
@@ -358,7 +359,7 @@ def test_gen_excluded_tbl_inc_chm_view_inc_img_view(
 
 
 @pytest.fixture(scope="module")
-def exc_etl_pipeline_raw(
+def exc_etl_pipeline_raw_mock(
     test_data_dir: Path,
     dirty_st_path: Path,
     ct_pw: str,
@@ -390,8 +391,8 @@ def test_dset_path(test_data_dir: Path) -> Path:
 
 
 @pytest.fixture(scope="module")
-def xr_dset_mock(exc_etl_pipeline_raw: db.DuckDBPyConnection) -> xr.Dataset:
-    result = get_data(output="xr", con=exc_etl_pipeline_raw)
+def xr_dset_mock(exc_etl_pipeline_raw_mock: db.DuckDBPyConnection) -> xr.Dataset:
+    result = get_data(output="xr", con=exc_etl_pipeline_raw_mock)
     if result:
         if isinstance(result, xr.Dataset):
             dset = result
@@ -429,3 +430,50 @@ def test_etl_pipeline_raw_full_dset(
         ct_un=ct_un,
         excluded_samples=excluded_samples,
     )
+
+
+@pytest.fixture
+def data_tuple(exc_etl_pipeline_raw_mock: db.DuckDBPyConnection) -> tuple:
+    """
+    Extracted data as a tuple
+    """
+    dtup = get_data(output="tuple", con=exc_etl_pipeline_raw_mock)
+    return dtup
+
+
+def test_get_data_as_tuple(data_tuple: tuple) -> None:
+    """
+    test that the tuples are produced and that each item has the correct runids
+    """
+    assert data_tuple
+
+    for pair in data_tuple:
+        img = pair[0]
+        mta = pair[1]
+
+        assert img["runid"][0] == mta["runid"][0]
+
+
+def test_get_data_select_samples(
+    exc_etl_pipeline_raw_mock: db.DuckDBPyConnection, test_d_paths
+):
+    """
+    use get_data to get only the samples specified
+    """
+
+    mock_runids = ["13", "54", "61", "89"]
+    removed_code = "13"
+    data = get_data(
+        output="tuple",
+        con=exc_etl_pipeline_raw_mock,
+        runids=[x for x in mock_runids if x != removed_code],
+    )
+    assert data
+
+    for pair in data:
+        img = pair[0]
+        mta = pair[1]
+
+        assert img["runid"][0] == mta["runid"][0]
+
+        assert img['runid'][0] != removed_code
