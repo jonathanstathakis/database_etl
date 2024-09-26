@@ -419,9 +419,9 @@ def exc_etl_pipeline_raw_mock(
             error_tables.append((table, e))
 
     if error_tables:
-        raise RuntimeError("the following errors were encountered:\n",error_tables)
+        raise RuntimeError("the following errors were encountered:\n", error_tables)
 
- ∫    return testcon
+    return testcon
 
 
 @pytest.fixture(scope="module")
@@ -516,3 +516,18 @@ def test_get_data_select_samples(
         assert img["runid"][0] == mta["runid"][0]
 
         assert img["runid"][0] != removed_code
+
+
+def test_write_mock_db_persist(test_data_dir, dirty_st_path, ct_pw, ct_un):
+    path = Path(__file__).parent / "testdb"
+    persist_db = db.connect(path)
+    etl_pipeline_raw(
+        data_dir=test_data_dir,
+        dirty_st_path=dirty_st_path,
+        ct_un=ct_un,
+        ct_pw=ct_pw,
+        con=persist_db,
+    )
+
+    db.close()
+    path.unlink()

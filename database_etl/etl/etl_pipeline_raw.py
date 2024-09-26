@@ -148,6 +148,7 @@ def fetch_imgs(con: db.DuckDBPyConnection, runids: list[str]) -> list[pl.DataFra
         img = img.with_columns(
             pl.lit(runid[0]).alias("runid"), pl.lit(path).alias("path"), pl.all()
         )
+        img = img.pipe(smooth_numeric_col, col='mins')
         imgs.append(img)
     return imgs
 
@@ -201,23 +202,40 @@ def etl_pipeline_raw(
     """
     logger.info("etl_pipeline_raw..")
 
+    # -- drop all tables in order of dependency
+    # /* TODO: find a better method than this. The only alternatives I can see are
+    # to delete the DB file, or allow updates on conflict, but id rather be explicit
+    # than implicit..
+    # */
+
+    tables = [
+        "solvents",
+        "bin_pump_mech_params",
+        "solvprop_over_mins",
+        "excluded",
+        "chm",
+        "sequences",
+        "chm_loading",
+        "st",
+        "ct",
+    ]
+    views = ["inc_chm", "run_data_paths"]
+    objs = {"table": tables, "view": views}
+
     if overwrite:
-        con.execute(
-            """
-            -- drop all tables in order of dependency
-            /* TODO: find a better method than this. The only alternatives I can see are
-            to delete the DB file, or allow updates on conflict, but id rather be explicit
-            than implicit..
-            */
-            drop table if exists st;
-            drop table if exists excluded;
-            drop table if exists solvprop_over_mins;
-            drop table if exists solvents;
-            drop table if exists bin_pump_mech_params;
-            drop table if exists chm;
-            drop table if exists ct;
-            """
-        )
+        for key in objs:
+            for obj in objs[key]:
+                try:
+                    logger.info(f"dropping {obj}")
+
+                    con.execute(
+                        f"""
+                        drop {key} if exists {obj};
+                        """
+                    )
+                except (db.CatalogException, db.CatalogException) as e:
+                    e.add_note(f"error encountered when trying to drop: {obj}")
+                    raise e
 
     if run_extraction:
         for path in data_dir.glob("*.D"):
@@ -240,7 +258,9 @@ def etl_pipeline_raw(
     sql.excluded.gen_included_views(
         con=con, excluded_samples=excluded_samples, overwrite=overwrite
     )
-
+    logger.info(
+        f"pipeline complete. Database created at {con.execute('select path from duckdb_databases').pl().item()}"
+    )
     return None
 
 
