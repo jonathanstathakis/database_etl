@@ -16,8 +16,10 @@ from database_etl.definitions import RAW_DATA_LIB
 from database_etl.etl.sql.ct import load_ct
 from database_etl.etl.sql.etl_pipeline_raw import (
     etl_pipeline_raw,
-    get_imgs_as_dict,
+    get_imgs_as_dict_numeric_cols_only,
     get_metadata_as_dict,
+    get_paths,
+    fetch_imgs,
 )
 from database_etl.etl.sql.raw_chm import load_chm
 from database_etl.etl.sql.raw_chm.bin_pumps_to_db.bin_pump_to_db_ import bin_pump_to_db
@@ -346,12 +348,18 @@ def test_gen_excluded_tbl_inc_chm_view_inc_img_view(
 
 
 @pytest.fixture
-def img_dict(
-    exc_load_image_stats: db.DuckDBPyConnection,
-    exc_get_sample_gradients: db.DuckDBPyConnection,
-    exc_gen_excluded_inc: db.DuckDBPyConnection,
-) -> dict[str, pl.DataFrame]:
-    return get_imgs_as_dict(exc_get_sample_gradients)
+def paths(exc_load_image_stats):
+    return get_paths(con=exc_load_image_stats)
+
+
+@pytest.fixture
+def imgs(exc_load_image_stats: db.DuckDBPyConnection) -> list[pl.DataFrame]:
+    return fetch_imgs(con=exc_load_image_stats)
+
+
+@pytest.fixture
+def img_dict(imgs: list[pl.DataFrame]) -> dict[str, pl.DataFrame]:
+    return get_imgs_as_dict_numeric_cols_only(imgs=imgs)
 
 
 @pytest.fixture
@@ -371,6 +379,9 @@ def xr_from_sql(
     metadata_dict: dict,
     img_dict: dict,
 ) -> xr.Dataset:
+    assert isinstance(img_dict, dict)
+    assert isinstance(metadata_dict, dict)
+
     dset = data_dicts_to_xr(img_dict=img_dict, metadata_dict=metadata_dict)
 
     assert dset
@@ -385,8 +396,8 @@ def test_sql_to_xr(xr_from_sql: xr.Dataset) -> None:
 
 
 @pytest.fixture
-def test_dset(test_data_dir: Path) -> xr.Dataset:
-    return xr.open_dataset(test_data_dir / "test_dset.nc")
+def test_dset_path(test_data_dir: Path) -> xr.Dataset:
+    return test_data_dir / "test_dset.nc"
 
 
 def test_etl_pipeline_raw(
@@ -394,7 +405,7 @@ def test_etl_pipeline_raw(
     dirty_st_path: Path,
     ct_pw: str,
     ct_un: str,
-    test_dset: xr.Dataset,
+    test_dset_path: Path,
     excluded_samples: list[dict[str, str]],
     testcon: db.DuckDBPyConnection = db.connect(),
     output: str = "xr",
@@ -421,8 +432,8 @@ def test_etl_pipeline_raw(
         raise TypeError("expected xr.Dataset")
 
     assert dset
-
-    xr_test.assert_equal(dset, test_dset)
+    
+    xr_test.assert_equal(dset, xr.open_dataset(test_dset_path))
 
 
 def test_etl_pipeline_raw_full_dset(

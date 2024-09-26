@@ -50,6 +50,7 @@ def get_sample_metadata(con: db.DuckDBPyConnection) -> pd.DataFrame:
         """--sql
     select
         chm.id as id,
+        chm.runid as runid,
         chm.acq_date as acq_date,
         chm.acq_method as acq_method,
         chm.seq_name as seq_name,
@@ -104,7 +105,7 @@ def get_paths(con: db.DuckDBPyConnection) -> list[str]:
     ]
 
 
-def add_runids_to_images(img: pl.DataFrame, con: db.DuckDBPyConnection) -> pl.DataFrame:
+def add_runid_to_img(img: pl.DataFrame, con: db.DuckDBPyConnection) -> pl.DataFrame:
     """
     join the img file to chm to add the runid
     """
@@ -126,35 +127,43 @@ def add_runids_to_images(img: pl.DataFrame, con: db.DuckDBPyConnection) -> pl.Da
 
 def fetch_imgs(con: db.DuckDBPyConnection) -> list[pl.DataFrame]:
     """
-    parse the parquet file of each run's chromatospectral image
+    parse the parquet file of each run's chromatospectral image found in paths
     """
-    # get the img file paths
-    paths = get_paths(con=con)
 
     # read the img file for each sample
+    paths = get_paths(con=con)
 
-    return [
-        add_runids_to_images(img=pl.read_parquet(path), con=con)
-        .rename({"time": "mins"})
-        .pipe(smooth_numeric_col, col="mins")
-        for path in paths
-    ]
+    # join path to data here
+
+    imgs = []
+
+    for path in paths:
+        img = pl.read_parquet(path)
+        img = img.pipe(add_runid_to_img, con=con)
+        img = img.with_columns(pl.lit(path).alias("path"))
+        img = img.rename({"time": "mins"})
+        img = img.pipe(smooth_numeric_col, col="mins")
+
+        imgs.append(img)
+
+    return imgs
 
 
 def get_metadata_as_dict(con: db.DuckDBPyConnection) -> dict:
     metadata = get_sample_metadata(con=con)
 
-    return metadata.set_index("id").to_dict(orient="index")
+    return metadata.set_index("runid").to_dict(orient="index")
 
 
-def get_imgs_as_dict(con: db.DuckDBPyConnection) -> dict[str, pl.DataFrame]:
+def get_imgs_as_dict_numeric_cols_only(
+    imgs: list[pl.DataFrame],
+) -> dict[str, pl.DataFrame]:
     """
     fetch all chromatospectral images for all samples in included chm returned as a
     dict with the 'chm.id' as the keys and the image dataframe as the value.
     """
-    imgs = fetch_imgs(con=con)
 
-    return {img["id"][0]: img.drop(["id", "runid"]) for img in imgs}
+    return {img["runid"][0]: img.drop(["id", "runid", "path"]) for img in imgs}
 
 
 def etl_pipeline_raw(
@@ -203,7 +212,8 @@ def etl_pipeline_raw(
 
     match output:
         case "xr":
-            imgs_as_dict = get_imgs_as_dict(con=con)
+            imgs = fetch_imgs(con=con)
+            imgs_as_dict = get_imgs_as_dict_numeric_cols_only(imgs=imgs)
             metadata_as_dict = get_metadata_as_dict(con=con)
             return to_xr.data_dicts_to_xr(
                 img_dict=imgs_as_dict, metadata_dict=metadata_as_dict

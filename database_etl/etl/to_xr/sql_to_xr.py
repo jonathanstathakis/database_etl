@@ -54,7 +54,7 @@ def data_dicts_to_xr(img_dict, metadata_dict, m: int = 7800) -> xr.Dataset:
     """
 
     logger.info("sql_to_xr..")
-
+    
     pd_imgs = [img.to_pandas() for img in img_dict.values()]
 
     trimmed_imgs = trim_times(imgs=pd_imgs, m=m)
