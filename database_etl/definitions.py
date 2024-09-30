@@ -9,3 +9,8 @@ DB_PATH: str = str(Path(ROOT_DIR) / "wine.db")
 DATA_DIR = ROOT_DIR / "data"
 RAW_DATA_LIB: Path = DATA_DIR / "raw_uv"
 NC_DSET_PATH = DATA_DIR / "raw_uv.nc"
+DIRTY_ST_PATH = (
+    "/Users/jonathan/mres_thesis/data/dirty_sample_tracker_names_corrected.parquet"
+)
+CT_UN = os.environ["CELLAR_TRACKER_UN"]
+CT_PW = os.environ["CELLAR_TRACKER_PW"]
