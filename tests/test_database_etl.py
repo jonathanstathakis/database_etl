@@ -12,12 +12,12 @@ import pytest
 import xarray as xr
 from xarray import testing as xr_test
 
-from database_etl.definitions import RAW_DATA_LIB
+from database_etl.definitions import RAW_DATA_LIB, DIRTY_ST_PATH
+from database_etl import definitions
 from database_etl.etl.sql.cs import load_image_stats
 from database_etl.etl.sql.ct import load_ct
 from database_etl.etl.etl_pipeline_raw import (
     etl_pipeline_raw,
-    fetch_imgs,
     get_data,
     get_imgs_as_dict_numeric_cols_only,
     get_metadata_as_dict,
@@ -55,12 +55,12 @@ def test_d_paths(test_data_dir) -> list[Path]:
 
 @pytest.fixture(scope="module")
 def ct_un():
-    return "OctaneOolong"
+    return definitions.CT_UN
 
 
 @pytest.fixture(scope="module")
 def ct_pw():
-    return "S74rg4z3r1"
+    return definitions.CT_PW
 
 
 @pytest.fixture(scope="module")
@@ -98,9 +98,7 @@ def test_load_clean_ct(exc_load_ct: db.DuckDBPyConnection) -> None:
 
 @pytest.fixture(scope="module")
 def dirty_st_path() -> Path:
-    return Path(
-        "/Users/jonathan/mres_thesis/database_etl/database_etl/data/dirty_sample_tracker_names_corrected.parquet"
-    )
+    return Path(DIRTY_ST_PATH)
 
 
 @pytest.fixture(scope="module")
