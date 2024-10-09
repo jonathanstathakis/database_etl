@@ -305,6 +305,7 @@ def get_data(
 
     if con.sql("select count(*)>0 from inc_chm").pl().is_empty():
         raise RuntimeError("`inc_chm` is empty, may need to run `etl_pipeline_raw`")
+    
     if not runids:
         result = con.sql(
             """--sql
