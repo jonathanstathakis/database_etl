@@ -110,4 +110,4 @@ def web_to_df(un: str, pw: str) -> pd.DataFrame:
 
 
 def web_to_db(con: db.DuckDBPyConnection, un: str, pw: str) -> None:
-    df = web_to_df(un=un, pw=pw)
+    web_to_df(un=un, pw=pw)

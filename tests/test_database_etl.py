@@ -7,7 +7,6 @@ Use fixtures to manage pipeline dependencies, execution order. Table A needs tab
 from pathlib import Path
 
 import duckdb as db
-import polars as pl
 import pytest
 import xarray as xr
 from xarray import testing as xr_test
@@ -19,9 +18,6 @@ from database_etl.etl.sql.ct import load_ct
 from database_etl.etl.etl_pipeline_raw import (
     etl_pipeline_raw,
     get_data,
-    get_imgs_as_dict_numeric_cols_only,
-    get_metadata_as_dict,
-    get_paths,
 )
 from database_etl.etl.sql.raw_chm import load_chm
 from database_etl.etl.sql.raw_chm.bin_pumps_to_db.bin_pump_to_db_ import bin_pump_to_db
@@ -29,7 +25,6 @@ from database_etl.etl.sql.raw_chm.bin_pumps_to_db.normalise_bin_pump_tbls import
     normalise_bin_pump_tbls,
 )
 from database_etl.etl.sql.raw_st import clean_load_raw_st
-from database_etl.etl.to_xr import data_dicts_to_xr
 
 
 @pytest.fixture(scope="module")

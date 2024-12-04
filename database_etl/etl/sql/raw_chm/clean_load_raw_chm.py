@@ -25,8 +25,8 @@ def get_query(name: str):
 def load_chm(con: db.DuckDBPyConnection, lib_dir: Path, overwrite: bool = False):
     logger.info("metadata_to_db..")
     # if overwrite:
-        # con.execute("drop table if exists chm cascade")
-        # con.execute("drop sequence if exists chm_seq")
+    # con.execute("drop table if exists chm cascade")
+    # con.execute("drop sequence if exists chm_seq")
     paths = get_metadata_file_paths(lib_dir=lib_dir)
 
     # metadata_df is scanned in the query below
@@ -35,13 +35,13 @@ def load_chm(con: db.DuckDBPyConnection, lib_dir: Path, overwrite: bool = False)
             pl.read_parquet(path).with_columns(pl.lit(str(path.parent)).alias("path"))
             for path in paths
         ]
-    )
+    )  # noqa: F841
 
     pl.Config.set_fmt_str_lengths(999)
 
     # add a 'date' ordered numbering to runs with duplicate runids.
 
-    metadata_df = con.sql(get_query("make_runids_unique")).pl()
+    metadata_df = con.sql(get_query("make_runids_unique")).pl()  # noqa: F841
 
     # double check that runid is now unique
 
