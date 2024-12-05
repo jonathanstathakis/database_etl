@@ -438,7 +438,18 @@ def xr_dset_mock(exc_etl_pipeline_raw_mock: db.DuckDBPyConnection) -> xr.Dataset
 
 
 def test_xr_dset_raw(xr_dset_mock: xr.Dataset, test_dset_path: Path) -> None:
+    # for setting up the stored file.
+    # only use if certain the stored file is incorrect
+    # xr_dset_mock.to_netcdf(test_dset_path)
+
     xr_test.assert_equal(xr_dset_mock, xr.open_dataset(test_dset_path))
+
+
+def test_xr_dset_raw_subsettable(xr_dset_mock: xr.Dataset) -> None:
+    """
+    check that the non-index coordinates are set up properly for indexing
+    """
+    assert xr_dset_mock.sel(id=xr_dset_mock.varietal == "shiraz").sizes["id"] == 1
 
 
 def test_etl_pipeline_raw_full_dset(

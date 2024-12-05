@@ -27,17 +27,24 @@ def trim_times(imgs: list[pd.DataFrame], m: int) -> list[pd.DataFrame]:
     return equal_length_samples
 
 
-def img_to_xr_dset(id: str, data_dict: dict):
+def img_to_xr_dset(data_dict: dict):
     """ """
     df = data_dict["data"]
 
-    return xr.Dataset(
+    # all non-dim variables (variables other than id, mins, wavelength)
+    #  are assigned to the id dimension for querying through boolean
+    # masking e.g. to select by varietal:
+    # ds.sel(id=ds.varietal=='shiraz')
+    coordinates = {
+        **{k: ("id", [v]) for k, v in data_dict.items() if k != "data"},
+    }
+
+    ds = xr.Dataset(
         data_vars={"img": df.set_index("mins").rename_axis("wavelength", axis=1)},
-        coords={
-            **{k: [v] for k, v in data_dict.items() if k != "data"},
-            **{"id": [id]},
-        },
+        coords=coordinates,
     )
+
+    return ds
 
 
 def data_dicts_to_xr(img_dict, metadata_dict, m: int = 7800) -> xr.Dataset:
@@ -51,16 +58,14 @@ def data_dicts_to_xr(img_dict, metadata_dict, m: int = 7800) -> xr.Dataset:
     """
 
     logger.info("sql_to_xr..")
-    
-    pd_imgs = [img.to_pandas() for img in img_dict.values()]
 
-    trimmed_imgs = trim_times(imgs=pd_imgs, m=m)
+    pd_imgs: list[pd.DataFrame] = [img.to_pandas() for img in img_dict.values()]
 
-    dataset_dict = {
+    trimmed_imgs: list[pd.DataFrame] = trim_times(imgs=pd_imgs, m=m)
+
+    dataset_dict: dict[str, dict[str, pd.DataFrame]] = {
         id: {"data": img, **metadata_dict[id]}
         for id, img in dict(zip(img_dict.keys(), trimmed_imgs)).items()
     }
 
-    return xr.concat(
-        [img_to_xr_dset(id, d) for id, d in dataset_dict.items()], dim="id"
-    )
+    return xr.concat([img_to_xr_dset(d) for id, d in dataset_dict.items()], dim="id")
