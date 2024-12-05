@@ -39,12 +39,19 @@ def img_to_xr_dset(data_dict: dict):
         **{k: ("id", [v]) for k, v in data_dict.items() if k != "data"},
     }
 
-    ds = xr.Dataset(
-        data_vars={"img": df.set_index("mins").rename_axis("wavelength", axis=1)},
+    coordinates["wavelength"] = [x for x in df.columns if x != "mins"]
+    coordinates["mins"] = df["mins"].to_numpy()
+
+    import numpy as np
+
+    data = np.expand_dims(df.drop("mins", axis=1).to_numpy(), axis=0)
+    da = xr.DataArray(
+        data=data,
+        dims=["id", "mins", "wavelength"],
         coords=coordinates,
     )
 
-    return ds
+    return da
 
 
 def data_dicts_to_xr(img_dict, metadata_dict, m: int = 7800) -> xr.Dataset:
@@ -68,4 +75,7 @@ def data_dicts_to_xr(img_dict, metadata_dict, m: int = 7800) -> xr.Dataset:
         for id, img in dict(zip(img_dict.keys(), trimmed_imgs)).items()
     }
 
-    return xr.concat([img_to_xr_dset(d) for id, d in dataset_dict.items()], dim="id")
+    ds = xr.concat(
+        objs=[img_to_xr_dset(d) for d in dataset_dict.values()], dim="id"
+    ).to_dataset(name="imgs")
+    return ds
