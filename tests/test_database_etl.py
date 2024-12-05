@@ -457,32 +457,56 @@ def test_xr_dset_raw_mock(xr_dset_mock: xr.Dataset, test_dset_path: Path) -> Non
     # only use if certain the stored file is incorrect
     # xr_dset_mock.to_netcdf(test_dset_path)
 
-    xr_test.assert_equal(
-        xr_dset_mock, xr.open_dataset(test_dset_path)
-    )
+    xr_test.assert_equal(xr_dset_mock, xr.open_dataset(test_dset_path))
 
 
-def test_etl_pipeline_raw_full_dset(
+@pytest.fixture(scope="module")
+def full_dataset_db_path():
+    return "fulldb"
+
+
+@pytest.fixture(scope="module")
+def excluded_samples_full() -> list[dict[str, str]]:
+    """samples to be excluded from the dataset"""
+
+    from definitions import EXCLUDED_RAW_SAMPLES
+
+    return EXCLUDED_RAW_SAMPLES
+
+
+@pytest.fixture(scope="module")
+def etl_pipeline_raw_full_dset(
+    full_dataset_db_path: str,
     dirty_st_path: Path,
     ct_pw: str,
     ct_un: str,
-    excluded_samples: list[dict[str, str]] = [
-        {
-            "runid": "2021-debortoli-cabernet-merlot_avantor",
-            "reason": "aborted run",
-        }
-    ],
+    excluded_samples_full: list[dict[str, str]],
     full_lib_dir: Path = Path("../../../jonathan/uni/0_jono_data/raw_uv").resolve(),
-    run_extraction: bool = True,
-) -> None:
-    etl_pipeline_raw(
-        run_extraction=run_extraction,
-        data_dir=full_lib_dir,
-        dirty_st_path=dirty_st_path,
-        ct_pw=ct_pw,
-        ct_un=ct_un,
-        excluded_samples=excluded_samples,
-    )
+    run_extraction: bool = False,
+) -> str:
+    with db.connect(full_dataset_db_path) as conn:
+        etl_pipeline_raw(
+            run_extraction=run_extraction,
+            data_dir=full_lib_dir,
+            dirty_st_path=dirty_st_path,
+            ct_pw=ct_pw,
+            ct_un=ct_un,
+            excluded_samples=excluded_samples_full,
+            con=conn,
+        )
+
+    return full_dataset_db_path
+
+
+def test_get_data_full_dataset(etl_pipeline_raw_full_dset):
+    with db.connect(etl_pipeline_raw_full_dset) as conn:
+        ds = get_data(output="xr", con=conn)
+
+    assert isinstance(ds, xr.Dataset)
+
+    import os
+
+    os.remove(etl_pipeline_raw_full_dset)
 
 
 @pytest.fixture

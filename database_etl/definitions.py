@@ -14,3 +14,14 @@ DIRTY_ST_PATH = (
 )
 CT_UN = os.environ["CELLAR_TRACKER_UN"]
 CT_PW = os.environ["CELLAR_TRACKER_PW"]
+
+EXCLUDED_RAW_SAMPLES = [
+    {
+        "runid": "2021-debortoli-cabernet-merlot_avantor",
+        "reason": "aborted run",
+    },
+    {
+        "runid": "98",
+        "reason": "recorded at 5Hz. Possible to downsample but not worth it atm.",
+    },
+]

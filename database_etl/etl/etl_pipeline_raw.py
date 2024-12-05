@@ -196,8 +196,6 @@ def etl_pipeline_raw(
     overwrite: bool = False,
 ) -> None:
     """
-    transform a directory `data_dir` of chemstation .D dirs into a xarray dataset. A side effect is a persistant duckdb database of sample run metadata.
-
     :data_dir: a directory of chemstation .D dirs to be parsed and transformed.
     :dirty_st_path: input sample tracker table (parquet)
     :ct_un: cellartracker
